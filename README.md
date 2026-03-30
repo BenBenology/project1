@@ -8,18 +8,18 @@
 - `source repository + crawler registry` 作为抓取扩展点
 - `SEC EDGAR submissions API` 作为正式披露来源
 - `Google News RSS` 作为真实文章来源
+- `Tesla Investor Relations` 作为首个公司 IR 正式材料来源
 
 项目目标不是直接给出买卖指令，而是帮助用户更快完成公开信息收集、归类和初步阅读。
 
 ## 当前已实现
 
 - 支持输入公司名、股票代码、行业词、主题词
-- 创建一个正式抓取任务
-- 模拟异步任务执行过程
-- 通过 source 配置和 crawler 抽象组织抓取流程
-- 将任务和文档持久化到本地数据库
+- 创建正式抓取任务
+- 按 source 执行真实抓取，并记录每个 source 的成功/失败
+- 将任务、文档、source 运行结果持久化到本地数据库
 - 返回结构化文档结果
-- 在前端展示报告、公告、新闻和文章
+- 在前端展示报告、公告、新闻和分析文章
 
 ## 项目结构
 
@@ -110,6 +110,7 @@ SEC 请求头默认使用：
 
 - `.env` 中的 `SEC_USER_AGENT`
 - 建议替换为真实邮箱，符合 SEC fair access 要求
+- 如果当前网络对 `data.sec.gov` SSL 不稳定，SEC source 可能失败，但其他 source 仍可返回 `partial_success`
 
 再启动前端：
 
@@ -132,9 +133,10 @@ streamlit run frontend/streamlit_app.py --server.port 8501
 5. 当前默认 sources 通过 SEC EDGAR 和 Google News RSS 获取真实数据
 6. 单个 source 失败不会拖死整个任务，任务可返回 `partial_success`
 7. 后端把任务状态和文档结果写入 SQLite
-8. 前端轮询任务状态
-9. 任务完成后获取结构化文档列表
-10. 前端展示摘要、标签、原文链接、PDF 下载入口
+8. 后端记录每个 source 的执行结果
+9. 前端轮询任务状态
+10. 任务完成后获取结构化文档列表
+11. 前端展示摘要、标签、原文链接、PDF / Filing 入口
 
 ## 核心接口
 
@@ -159,10 +161,14 @@ streamlit run frontend/streamlit_app.py --server.port 8501
 
 获取任务产出的文档列表。
 
+### `GET /api/tasks/{task_id}/sources`
+
+获取每个 source 的执行结果，用于排查为什么是 `partial_success` 或为什么没有官方材料。
+
 ## 后续演进建议
 
 - 用 PostgreSQL 替换 SQLite
 - 用 Redis 或消息队列替换本地异步模拟
-- 接入真实爬虫和解析器
+- 扩展更多公司 IR 来源和正式材料 PDF
 - 将 Streamlit 替换为小程序或 Web 前端
 - 增加用户体系、收藏、订阅和推送能力

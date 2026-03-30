@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from backend.app.crawlers.registry import crawler_registry
 from backend.app.core.config import get_settings
-from backend.app.models.schemas import Document, TaskCreateRequest, TaskRecord
+from backend.app.models.schemas import Document, SourceRunRecord, TaskCreateRequest, TaskRecord
 from backend.app.repositories.source_repository import source_repository
 from backend.app.repositories.task_repository import task_repository
 
@@ -45,21 +45,27 @@ class TaskService:
         task_repository.save_task(task)
 
         sleep(self.settings.mock_task_delay_seconds)
-        documents, source_errors = self._generate_documents(task)
+        documents, source_runs = self._generate_documents(task)
 
         task.progress = 100
         task.result_count = len(documents)
         task.finished_at = datetime.now(UTC)
-        if documents and source_errors:
+        failed_source_messages = [
+            f"{run.source_name}: {run.error_message}"
+            for run in source_runs
+            if run.status == "failed" and run.error_message
+        ]
+        if documents and failed_source_messages:
             task.status = "partial_success"
-            task.error_message = " | ".join(source_errors)
+            task.error_message = " | ".join(failed_source_messages)
         elif documents:
             task.status = "success"
             task.error_message = None
         else:
             task.status = "failed"
-            task.error_message = " | ".join(source_errors) or "No documents found for query."
+            task.error_message = " | ".join(failed_source_messages) or "No documents found for query."
         task_repository.save_documents(task_id, documents)
+        task_repository.save_source_runs(task_id, source_runs)
         task_repository.save_task(task)
 
     def get_task(self, task_id: str) -> TaskRecord | None:
@@ -70,22 +76,47 @@ class TaskService:
         """Fetch generated documents for a task."""
         return list(task_repository.get_documents(task_id))
 
-    def _generate_documents(self, task: TaskRecord) -> tuple[list[Document], list[str]]:
+    def get_source_runs(self, task_id: str) -> list[SourceRunRecord]:
+        """Fetch source-level execution results for a task."""
+        return list(task_repository.get_source_runs(task_id))
+
+    def _generate_documents(self, task: TaskRecord) -> tuple[list[Document], list[SourceRunRecord]]:
         """Collect documents from enabled sources through the crawler registry."""
         source_repository.ensure_default_sources()
         documents_by_id: OrderedDict[str, Document] = OrderedDict()
-        source_errors: list[str] = []
+        source_runs: list[SourceRunRecord] = []
 
         for source in source_repository.list_enabled_sources():
             try:
                 crawler = crawler_registry.get(source.crawler_key)
-                for document in crawler.collect(task, source):
+                source_documents = crawler.collect(task, source)
+                added_count = 0
+                for document in source_documents:
                     dedupe_key = f"{document.source_code}:{document.title}:{document.url}"
-                    documents_by_id.setdefault(dedupe_key, document)
+                    if dedupe_key not in documents_by_id:
+                        documents_by_id[dedupe_key] = document
+                        added_count += 1
+                source_runs.append(
+                    SourceRunRecord(
+                        source_code=source.code,
+                        source_name=source.name,
+                        status="success",
+                        document_count=added_count,
+                        error_message=None,
+                    )
+                )
             except Exception as exc:
-                source_errors.append(f"{source.name}: {exc}")
+                source_runs.append(
+                    SourceRunRecord(
+                        source_code=source.code,
+                        source_name=source.name,
+                        status="failed",
+                        document_count=0,
+                        error_message=str(exc),
+                    )
+                )
 
-        return list(documents_by_id.values()), source_errors
+        return list(documents_by_id.values()), source_runs
 
 
 task_service = TaskService()

@@ -27,8 +27,10 @@
         |
         +--> [Crawler Registry]
                  |
-                 +--> [Mock Financial Crawler]
-                 +--> [Mock News Crawler]
+                 +--> [Company IR Crawler]
+                 +--> [SEC EDGAR Crawler]
+                 +--> [Google News RSS Crawler]
+                 +--> [Mock Crawlers]
 ```
 
 ## 3. 分层说明
@@ -78,8 +80,9 @@
 职责：
 
 - 管理任务生命周期
-- 组织 mock 数据或未来真实抓取流程
+- 组织真实 source 与 crawler 的调度流程
 - 控制任务状态变化
+- 汇总 source 级成功/失败信息
 
 设计原则：
 
@@ -96,6 +99,7 @@
 
 - 保存任务数据
 - 保存文档结果
+- 保存每个 source 的执行结果
 
 当前实现：
 
@@ -126,9 +130,11 @@
 3. FastAPI 创建任务并返回 `task_id`
 4. 后端后台任务模拟处理
 5. 服务层根据启用的 sources 调用 crawler registry
-6. 前端轮询 `GET /api/tasks/{task_id}`
-7. 任务完成后调用 `GET /api/tasks/{task_id}/documents`
-8. 前端展示结果
+6. 后端记录每个 source 的执行结果
+7. 前端轮询 `GET /api/tasks/{task_id}`
+8. 任务完成后调用 `GET /api/tasks/{task_id}/documents`
+9. 如需排障，可调用 `GET /api/tasks/{task_id}/sources`
+10. 前端展示结果
 
 ## 6. 后续演进架构
 
@@ -175,7 +181,8 @@
 
 ## 8. 当前限制
 
-- 没有真实站点抓取
+- SEC 在部分网络环境下可能出现 SSL 失败
+- 当前公司 IR 先重点支持 Tesla/TSLA
 - 没有用户登录态
 - 没有权限控制
 - 没有生产环境部署能力

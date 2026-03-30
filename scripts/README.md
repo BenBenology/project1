@@ -9,6 +9,12 @@
 - 自动读取项目根目录下的 `.env`
 - 按 `Ctrl + C` 时同时关闭两个进程
 
+当前更适合用于本地联调：
+
+- FastAPI 后端会连接 SQLite
+- 后端会执行真实 source 与 mock fallback 的组合流程
+- Streamlit 前端默认消费后端 API，而不是只看静态 demo
+
 运行方式：
 
 ```bash

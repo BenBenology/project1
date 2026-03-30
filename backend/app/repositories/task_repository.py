@@ -7,9 +7,15 @@ from collections.abc import Sequence
 
 from sqlalchemy import select
 
-from backend.app.db.models import AttachmentModel, DocumentModel, TaskModel
+from backend.app.db.models import AttachmentModel, DocumentModel, TaskModel, TaskSourceRunModel
 from backend.app.db.session import SessionLocal
-from backend.app.models.schemas import Document, DocumentAttachment, DocumentSummary, TaskRecord
+from backend.app.models.schemas import (
+    Document,
+    DocumentAttachment,
+    DocumentSummary,
+    SourceRunRecord,
+    TaskRecord,
+)
 
 
 class SqlAlchemyTaskRepository:
@@ -84,6 +90,27 @@ class SqlAlchemyTaskRepository:
                         )
                     )
 
+    def save_source_runs(self, task_id: str, source_runs: list[SourceRunRecord]) -> None:
+        """Replace persisted source execution results for one task."""
+        with SessionLocal.begin() as session:
+            existing_runs = session.scalars(
+                select(TaskSourceRunModel).where(TaskSourceRunModel.task_id == task_id)
+            ).all()
+            for existing_run in existing_runs:
+                session.delete(existing_run)
+
+            for source_run in source_runs:
+                session.add(
+                    TaskSourceRunModel(
+                        task_id=task_id,
+                        source_code=source_run.source_code,
+                        source_name=source_run.source_name,
+                        status=source_run.status,
+                        document_count=source_run.document_count,
+                        error_message=source_run.error_message,
+                    )
+                )
+
     def get_documents(self, task_id: str) -> Sequence[Document]:
         """Fetch normalized documents for a task."""
         with SessionLocal() as session:
@@ -93,6 +120,25 @@ class SqlAlchemyTaskRepository:
                 .order_by(DocumentModel.publish_time.desc())
             ).all()
             return [self._to_document(model) for model in models]
+
+    def get_source_runs(self, task_id: str) -> Sequence[SourceRunRecord]:
+        """Fetch persisted source execution results for a task."""
+        with SessionLocal() as session:
+            models = session.scalars(
+                select(TaskSourceRunModel)
+                .where(TaskSourceRunModel.task_id == task_id)
+                .order_by(TaskSourceRunModel.source_name.asc())
+            ).all()
+            return [
+                SourceRunRecord(
+                    source_code=model.source_code,
+                    source_name=model.source_name,
+                    status=model.status,
+                    document_count=model.document_count,
+                    error_message=model.error_message,
+                )
+                for model in models
+            ]
 
     def _to_document(self, model: DocumentModel) -> Document:
         """Convert an ORM model into the API-safe schema."""

@@ -16,8 +16,8 @@ Agent 的目标是帮助团队持续推进这个项目，但必须遵守 MVP 优
 
 - 跑通查询任务主链路
 - 保持前后端分层
-- 用 mock 数据代替真实抓取
-- 为接入真实数据源留出接口
+- 在真实 source 与 mock source 混合状态下持续推进
+- 为接入更多官方 IR / filing / analyst 来源留出接口
 
 ## Agent 工作原则
 
@@ -70,3 +70,10 @@ Agent 交付内容默认应包含：
 - 为什么这样拆分
 - 当前仍有哪些限制
 - 下一步最合理的推进方向
+
+## 当前真实 source
+
+- `Company IR`：当前优先支持 Tesla/TSLA
+- `SEC EDGAR`：正式披露来源，但受部分网络环境影响
+- `Google News RSS`：真实新闻来源
+- `Analyst Coverage`：通过 Google News RSS 派生的分析评论线

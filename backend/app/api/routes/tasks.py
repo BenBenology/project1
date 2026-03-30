@@ -4,6 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 from backend.app.models.schemas import (
     DocumentListResponse,
+    SourceRunListResponse,
     TaskCreateRequest,
     TaskCreateResponse,
     TaskDetailResponse,
@@ -44,3 +45,13 @@ def get_task_documents(task_id: str) -> DocumentListResponse:
         raise HTTPException(status_code=404, detail="Task not found.")
     documents = task_service.get_documents(task_id)
     return DocumentListResponse(task_id=task_id, count=len(documents), items=documents)
+
+
+@router.get("/{task_id}/sources", response_model=SourceRunListResponse)
+def get_task_sources(task_id: str) -> SourceRunListResponse:
+    """Return per-source execution results for a task."""
+    task = task_service.get_task(task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found.")
+    source_runs = task_service.get_source_runs(task_id)
+    return SourceRunListResponse(task_id=task_id, count=len(source_runs), items=source_runs)

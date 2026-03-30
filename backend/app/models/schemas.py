@@ -65,6 +65,26 @@ class DocumentListResponse(BaseModel):
     items: list[Document]
 
 
+class SourceRunRecord(BaseModel):
+    """Per-source execution result for a task."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    source_code: str
+    source_name: str
+    status: str
+    document_count: int
+    error_message: str | None = None
+
+
+class SourceRunListResponse(BaseModel):
+    """List response for source execution details."""
+
+    task_id: str
+    count: int
+    items: list[SourceRunRecord]
+
+
 class TaskRecord(BaseModel):
     """Internal and API-safe representation of a task."""
 

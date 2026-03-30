@@ -33,6 +33,10 @@ class TaskModel(Base):
         back_populates="task",
         cascade="all, delete-orphan",
     )
+    source_runs: Mapped[list["TaskSourceRunModel"]] = relationship(
+        back_populates="task",
+        cascade="all, delete-orphan",
+    )
 
 
 class SourceModel(Base):
@@ -88,3 +92,19 @@ class AttachmentModel(Base):
     file_url: Mapped[str] = mapped_column(Text)
 
     document: Mapped[DocumentModel] = relationship(back_populates="attachments")
+
+
+class TaskSourceRunModel(Base):
+    """Persisted per-source execution results for one task."""
+
+    __tablename__ = "task_source_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.id"), index=True)
+    source_code: Mapped[str] = mapped_column(String(64), index=True)
+    source_name: Mapped[str] = mapped_column(String(100))
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    document_count: Mapped[int] = mapped_column(Integer, default=0)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    task: Mapped[TaskModel] = relationship(back_populates="source_runs")
