@@ -1,0 +1,19 @@
+# Python cache and compiled files.
+__pycache__/
+*.py[cod]
+
+# Virtual environments.
+.venv/
+venv/
+
+# Environment files.
+.env
+
+# Streamlit and local editor artifacts.
+.streamlit/
+.DS_Store
+
+# Test and coverage artifacts.
+.pytest_cache/
+.coverage
+htmlcov/
