@@ -29,6 +29,15 @@ DEFAULT_SOURCES = [
         priority=10,
     ),
     SourceRecord(
+        code="curated_materials",
+        name="Curated Materials",
+        source_type="official",
+        base_url="https://ir.tesla.com/",
+        crawler_key="curated_materials",
+        enabled=1,
+        priority=15,
+    ),
+    SourceRecord(
         code="google_news",
         name="Google News",
         source_type="news",
