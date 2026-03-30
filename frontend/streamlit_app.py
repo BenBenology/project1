@@ -75,14 +75,29 @@ def inject_styles() -> None:
             }
             .block-container {
                 max-width: 1080px;
-                padding-top: 1.5rem;
+                padding-top: 0.8rem;
                 padding-bottom: 2.4rem;
+            }
+            header[data-testid="stHeader"] {
+                height: 0;
+                background: transparent;
+            }
+            [data-testid="stToolbar"] {
+                right: 0.75rem;
+                top: 0.55rem;
+            }
+            [data-testid="stDecoration"] {
+                display: none;
+            }
+            #MainMenu {
+                visibility: hidden;
             }
             h1, h2, h3 {
                 color: #111214;
                 letter-spacing: -0.02em;
             }
             .app-header {
+                margin-top: 0.25rem;
                 margin-bottom: 1rem;
             }
             .app-title {
