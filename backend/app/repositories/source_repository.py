@@ -11,6 +11,15 @@ from backend.app.models.schemas import SourceRecord
 
 DEFAULT_SOURCES = [
     SourceRecord(
+        code="company_ir",
+        name="Company IR",
+        source_type="official",
+        base_url="https://ir.tesla.com/",
+        crawler_key="company_ir",
+        enabled=1,
+        priority=5,
+    ),
+    SourceRecord(
         code="sec_edgar",
         name="SEC EDGAR",
         source_type="official",
