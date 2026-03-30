@@ -107,8 +107,10 @@ def inject_styles() -> None:
             }
             .app-subtitle {
                 color: #62666d;
-                font-size: 0.94rem;
-                max-width: 52ch;
+                font-size: 0.9rem;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
             .search-shell, .summary-shell, .empty-shell, .starter-shell {
                 background: rgba(255, 255, 255, 0.78);
