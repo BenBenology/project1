@@ -11,31 +11,22 @@ from backend.app.models.schemas import SourceRecord
 
 DEFAULT_SOURCES = [
     SourceRecord(
-        code="official_ir",
-        name="Official IR",
+        code="sec_edgar",
+        name="SEC EDGAR",
         source_type="official",
-        base_url="https://example.com/ir",
-        crawler_key="mock_financial",
+        base_url="https://data.sec.gov/submissions/",
+        crawler_key="sec_submissions",
         enabled=1,
         priority=10,
     ),
     SourceRecord(
-        code="regulatory_filing",
-        name="Regulatory Filing",
-        source_type="official",
-        base_url="https://example.com/filings",
-        crawler_key="mock_financial",
-        enabled=1,
-        priority=20,
-    ),
-    SourceRecord(
-        code="market_news",
-        name="Market News Daily",
+        code="mock_news",
+        name="Mock News Fallback",
         source_type="news",
         base_url="https://example.com/news",
         crawler_key="mock_news",
-        enabled=1,
-        priority=30,
+        enabled=0,
+        priority=100,
     ),
 ]
 
@@ -46,21 +37,36 @@ class SourceRepository:
     def ensure_default_sources(self) -> None:
         """Seed baseline sources if the table is empty."""
         with SessionLocal.begin() as session:
-            existing_codes = set(session.scalars(select(SourceModel.code)).all())
+            existing_models = {
+                model.code: model for model in session.scalars(select(SourceModel)).all()
+            }
             for source in DEFAULT_SOURCES:
-                if source.code in existing_codes:
-                    continue
-                session.add(
-                    SourceModel(
-                        code=source.code,
-                        name=source.name,
-                        source_type=source.source_type,
-                        base_url=source.base_url,
-                        crawler_key=source.crawler_key,
-                        enabled=source.enabled,
-                        priority=source.priority,
+                model = existing_models.get(source.code)
+                if model is None:
+                    session.add(
+                        SourceModel(
+                            code=source.code,
+                            name=source.name,
+                            source_type=source.source_type,
+                            base_url=source.base_url,
+                            crawler_key=source.crawler_key,
+                            enabled=source.enabled,
+                            priority=source.priority,
+                        )
                     )
-                )
+                    continue
+
+                model.name = source.name
+                model.source_type = source.source_type
+                model.base_url = source.base_url
+                model.crawler_key = source.crawler_key
+                model.enabled = source.enabled
+                model.priority = source.priority
+
+            for legacy_code in {"official_ir", "regulatory_filing", "market_news"}:
+                model = existing_models.get(legacy_code)
+                if model is not None:
+                    model.enabled = 0
 
     def list_enabled_sources(self) -> list[SourceRecord]:
         """Return enabled sources ordered by priority."""

@@ -6,14 +6,14 @@
 - `Streamlit` 作为快速验证前端
 - `SQLite + SQLAlchemy` 作为默认持久化层
 - `source repository + crawler registry` 作为抓取扩展点
-- `mock 数据` 模拟财报、公告、新闻、深度文章
+- `SEC EDGAR submissions API` 作为第一个真实公开数据源
 
 项目目标不是直接给出买卖指令，而是帮助用户更快完成公开信息收集、归类和初步阅读。
 
 ## 当前已实现
 
 - 支持输入公司名、股票代码、行业词、主题词
-- 创建一个 mock 抓取任务
+- 创建一个正式抓取任务
 - 模拟异步任务执行过程
 - 通过 source 配置和 crawler 抽象组织抓取流程
 - 将任务和文档持久化到本地数据库
@@ -105,6 +105,11 @@ uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
 
 - `data/app.db`
 
+SEC 请求头默认使用：
+
+- `.env` 中的 `SEC_USER_AGENT`
+- 建议替换为真实邮箱，符合 SEC fair access 要求
+
 再启动前端：
 
 另开一个终端运行：
@@ -123,10 +128,11 @@ streamlit run frontend/streamlit_app.py --server.port 8501
 2. 前端调用 `POST /api/tasks`
 3. 后端创建任务并异步处理
 4. 服务层从已启用 sources 中选择 crawler
-5. 后端把任务状态和文档结果写入 SQLite
-6. 前端轮询任务状态
-7. 任务完成后获取结构化文档列表
-8. 前端展示摘要、标签、原文链接、PDF 下载入口
+5. 当前默认 source 通过 SEC EDGAR submissions API 获取真实披露数据
+6. 后端把任务状态和文档结果写入 SQLite
+7. 前端轮询任务状态
+8. 任务完成后获取结构化文档列表
+9. 前端展示摘要、标签、原文链接、PDF 下载入口
 
 ## 核心接口
 

@@ -44,15 +44,23 @@ class TaskService:
         task.started_at = datetime.now(UTC)
         task_repository.save_task(task)
 
-        sleep(self.settings.mock_task_delay_seconds)
-        documents = self._generate_documents(task)
+        try:
+            sleep(self.settings.mock_task_delay_seconds)
+            documents = self._generate_documents(task)
 
-        task.progress = 100
-        task.status = "success"
-        task.result_count = len(documents)
-        task.finished_at = datetime.now(UTC)
-        task_repository.save_documents(task_id, documents)
-        task_repository.save_task(task)
+            task.progress = 100
+            task.status = "success" if documents else "failed"
+            task.result_count = len(documents)
+            task.error_message = None if documents else "No documents found for query."
+            task.finished_at = datetime.now(UTC)
+            task_repository.save_documents(task_id, documents)
+            task_repository.save_task(task)
+        except Exception as exc:
+            task.progress = 100
+            task.status = "failed"
+            task.error_message = str(exc)
+            task.finished_at = datetime.now(UTC)
+            task_repository.save_task(task)
 
     def get_task(self, task_id: str) -> TaskRecord | None:
         """Fetch a task from the repository."""

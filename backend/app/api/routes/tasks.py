@@ -17,13 +17,13 @@ router = APIRouter(prefix="/tasks", tags=["tasks"])
 def create_task(
     payload: TaskCreateRequest, background_tasks: BackgroundTasks
 ) -> TaskCreateResponse:
-    """Create a mock task and process it asynchronously."""
+    """Create a task and process it asynchronously."""
     task = task_service.create_task(payload)
     background_tasks.add_task(task_service.process_task, task.id)
     return TaskCreateResponse(
         task_id=task.id,
         status=task.status,
-        message="Mock crawl task created.",
+        message="Task created.",
     )
 
 

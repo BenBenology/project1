@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     api_port: int = 8000
     database_url: str = "sqlite:///./data/app.db"
     mock_task_delay_seconds: int = 2
+    sec_user_agent: str = "project1 research app your-email@example.com"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

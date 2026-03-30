@@ -3,7 +3,7 @@
 from collections.abc import Generator
 from pathlib import Path
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from backend.app.core.config import get_settings
@@ -34,6 +34,26 @@ def init_db() -> None:
     import backend.app.db.models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+    _run_sqlite_compat_migrations()
+
+
+def _run_sqlite_compat_migrations() -> None:
+    """Apply lightweight schema fixes for local SQLite development."""
+    if not settings.database_url.startswith("sqlite"):
+        return
+
+    inspector = inspect(engine)
+    if "documents" not in inspector.get_table_names():
+        return
+
+    document_columns = {column["name"] for column in inspector.get_columns("documents")}
+    if "source_code" not in document_columns:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "ALTER TABLE documents ADD COLUMN source_code VARCHAR(64) DEFAULT 'unknown'"
+                )
+            )
 
 
 def get_db_session() -> Generator[Session, None, None]:
