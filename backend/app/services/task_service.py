@@ -44,23 +44,23 @@ class TaskService:
         task.started_at = datetime.now(UTC)
         task_repository.save_task(task)
 
-        try:
-            sleep(self.settings.mock_task_delay_seconds)
-            documents = self._generate_documents(task)
+        sleep(self.settings.mock_task_delay_seconds)
+        documents, source_errors = self._generate_documents(task)
 
-            task.progress = 100
-            task.status = "success" if documents else "failed"
-            task.result_count = len(documents)
-            task.error_message = None if documents else "No documents found for query."
-            task.finished_at = datetime.now(UTC)
-            task_repository.save_documents(task_id, documents)
-            task_repository.save_task(task)
-        except Exception as exc:
-            task.progress = 100
+        task.progress = 100
+        task.result_count = len(documents)
+        task.finished_at = datetime.now(UTC)
+        if documents and source_errors:
+            task.status = "partial_success"
+            task.error_message = " | ".join(source_errors)
+        elif documents:
+            task.status = "success"
+            task.error_message = None
+        else:
             task.status = "failed"
-            task.error_message = str(exc)
-            task.finished_at = datetime.now(UTC)
-            task_repository.save_task(task)
+            task.error_message = " | ".join(source_errors) or "No documents found for query."
+        task_repository.save_documents(task_id, documents)
+        task_repository.save_task(task)
 
     def get_task(self, task_id: str) -> TaskRecord | None:
         """Fetch a task from the repository."""
@@ -70,18 +70,22 @@ class TaskService:
         """Fetch generated documents for a task."""
         return list(task_repository.get_documents(task_id))
 
-    def _generate_documents(self, task: TaskRecord) -> list[Document]:
+    def _generate_documents(self, task: TaskRecord) -> tuple[list[Document], list[str]]:
         """Collect documents from enabled sources through the crawler registry."""
         source_repository.ensure_default_sources()
         documents_by_id: OrderedDict[str, Document] = OrderedDict()
+        source_errors: list[str] = []
 
         for source in source_repository.list_enabled_sources():
-            crawler = crawler_registry.get(source.crawler_key)
-            for document in crawler.collect(task, source):
-                dedupe_key = f"{document.source_code}:{document.title}:{document.url}"
-                documents_by_id.setdefault(dedupe_key, document)
+            try:
+                crawler = crawler_registry.get(source.crawler_key)
+                for document in crawler.collect(task, source):
+                    dedupe_key = f"{document.source_code}:{document.title}:{document.url}"
+                    documents_by_id.setdefault(dedupe_key, document)
+            except Exception as exc:
+                source_errors.append(f"{source.name}: {exc}")
 
-        return list(documents_by_id.values())
+        return list(documents_by_id.values()), source_errors
 
 
 task_service = TaskService()

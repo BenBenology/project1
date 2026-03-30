@@ -6,7 +6,8 @@
 - `Streamlit` 作为快速验证前端
 - `SQLite + SQLAlchemy` 作为默认持久化层
 - `source repository + crawler registry` 作为抓取扩展点
-- `SEC EDGAR submissions API` 作为第一个真实公开数据源
+- `SEC EDGAR submissions API` 作为正式披露来源
+- `Google News RSS` 作为真实文章来源
 
 项目目标不是直接给出买卖指令，而是帮助用户更快完成公开信息收集、归类和初步阅读。
 
@@ -128,11 +129,12 @@ streamlit run frontend/streamlit_app.py --server.port 8501
 2. 前端调用 `POST /api/tasks`
 3. 后端创建任务并异步处理
 4. 服务层从已启用 sources 中选择 crawler
-5. 当前默认 source 通过 SEC EDGAR submissions API 获取真实披露数据
-6. 后端把任务状态和文档结果写入 SQLite
-7. 前端轮询任务状态
-8. 任务完成后获取结构化文档列表
-9. 前端展示摘要、标签、原文链接、PDF 下载入口
+5. 当前默认 sources 通过 SEC EDGAR 和 Google News RSS 获取真实数据
+6. 单个 source 失败不会拖死整个任务，任务可返回 `partial_success`
+7. 后端把任务状态和文档结果写入 SQLite
+8. 前端轮询任务状态
+9. 任务完成后获取结构化文档列表
+10. 前端展示摘要、标签、原文链接、PDF 下载入口
 
 ## 核心接口
 

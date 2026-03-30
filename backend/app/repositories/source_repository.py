@@ -20,6 +20,15 @@ DEFAULT_SOURCES = [
         priority=10,
     ),
     SourceRecord(
+        code="google_news",
+        name="Google News",
+        source_type="news",
+        base_url="https://news.google.com/rss",
+        crawler_key="google_news_rss",
+        enabled=1,
+        priority=20,
+    ),
+    SourceRecord(
         code="mock_news",
         name="Mock News Fallback",
         source_type="news",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from backend.app.crawlers.base import BaseCrawler
+from backend.app.crawlers.google_news import GoogleNewsCrawler
 from backend.app.crawlers.mock import MockFinancialCrawler, MockNewsCrawler
 from backend.app.crawlers.sec import SecSubmissionsCrawler
 from backend.app.models.schemas import SourceRecord
@@ -13,6 +14,7 @@ class CrawlerRegistry:
 
     def __init__(self) -> None:
         self._crawlers: dict[str, BaseCrawler] = {}
+        self.register(GoogleNewsCrawler())
         self.register(SecSubmissionsCrawler())
         self.register(MockFinancialCrawler())
         self.register(MockNewsCrawler())
