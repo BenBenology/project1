@@ -127,6 +127,7 @@ cython_debug/
 # Project-specific local artifacts
 .streamlit/
 .DS_Store
+data/
 
 # AI/editor tooling
 .abstra/

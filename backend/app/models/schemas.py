@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 QueryType = Literal["company", "stock", "industry", "topic"]
 TaskStatus = Literal["pending", "running", "success", "partial_success", "failed"]
@@ -45,6 +45,7 @@ class Document(BaseModel):
     """Single normalized document item."""
 
     id: str
+    source_code: str | None = None
     doc_type: DocumentType
     title: str
     company_name: str
@@ -67,6 +68,8 @@ class DocumentListResponse(BaseModel):
 class TaskRecord(BaseModel):
     """Internal and API-safe representation of a task."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     query: str
     query_type: QueryType
@@ -83,3 +86,18 @@ class TaskDetailResponse(TaskRecord):
     """Task detail response returned to clients."""
 
     pass
+
+
+class SourceRecord(BaseModel):
+    """Persisted source definition used by crawler dispatch."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int | None = None
+    code: str
+    name: str
+    source_type: str
+    base_url: str
+    crawler_key: str
+    enabled: int = 1
+    priority: int = 100

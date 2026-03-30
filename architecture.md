@@ -21,9 +21,14 @@
         v
 [Task Service]
         |
-        +--> [In-Memory Repository]
+        +--> [SQLite Repository]
         |
-        +--> [Mock Data Builder]
+        +--> [Source Repository]
+        |
+        +--> [Crawler Registry]
+                 |
+                 +--> [Mock Financial Crawler]
+                 +--> [Mock News Crawler]
 ```
 
 ## 3. 分层说明
@@ -94,7 +99,7 @@
 
 当前实现：
 
-- 使用内存存储
+- 使用 SQLite 持久化任务、文档和来源配置
 
 未来演进：
 
@@ -120,25 +125,10 @@
 2. 前端调用 `POST /api/tasks`
 3. FastAPI 创建任务并返回 `task_id`
 4. 后端后台任务模拟处理
-5. 服务层生成 mock 文档
+5. 服务层根据启用的 sources 调用 crawler registry
 6. 前端轮询 `GET /api/tasks/{task_id}`
 7. 任务完成后调用 `GET /api/tasks/{task_id}/documents`
 8. 前端展示结果
-
-## 5. 为什么当前不用数据库
-
-这是一个合理的阶段性取舍，不是偷懒。
-
-原因：
-
-- 当前目标是验证产品主链路
-- 数据库会增加初始化和迁移成本
-- 在还没接入真实爬虫前，内存存储足够支撑 demo
-
-但这个取舍的前提是：
-
-- 仓储层已经独立
-- 后续替换为数据库时不需要重写 API
 
 ## 6. 后续演进架构
 
@@ -175,8 +165,8 @@
 
 ### 替换 mock 数据
 
-- 保留 `TaskService` 主流程
-- 将 `Mock Data Builder` 替换成真实 crawler 和 parser
+- 保留 `TaskService` 和 `Crawler Registry` 主流程
+- 将 mock crawler 逐步替换成真实 crawler 和 parser
 
 ### 替换内存仓库
 
@@ -185,7 +175,6 @@
 
 ## 8. 当前限制
 
-- 任务状态保存在内存中，服务重启后会丢失
 - 没有真实站点抓取
 - 没有用户登录态
 - 没有权限控制

@@ -4,6 +4,8 @@
 
 - `FastAPI` 作为后端 API
 - `Streamlit` 作为快速验证前端
+- `SQLite + SQLAlchemy` 作为默认持久化层
+- `source repository + crawler registry` 作为抓取扩展点
 - `mock 数据` 模拟财报、公告、新闻、深度文章
 
 项目目标不是直接给出买卖指令，而是帮助用户更快完成公开信息收集、归类和初步阅读。
@@ -13,6 +15,8 @@
 - 支持输入公司名、股票代码、行业词、主题词
 - 创建一个 mock 抓取任务
 - 模拟异步任务执行过程
+- 通过 source 配置和 crawler 抽象组织抓取流程
+- 将任务和文档持久化到本地数据库
 - 返回结构化文档结果
 - 在前端展示报告、公告、新闻和文章
 
@@ -25,8 +29,10 @@ project1/
 │   └── app/
 │       ├── api/                # 路由层
 │       ├── core/               # 配置层
+│       ├── crawlers/           # crawler 抽象与注册中心
+│       ├── db/                 # SQLAlchemy 和 ORM 模型
 │       ├── models/             # 数据模型
-│       ├── repositories/       # 存储层，当前为内存实现
+│       ├── repositories/       # 存储层，当前为 SQLite 实现
 │       ├── services/           # 业务逻辑层
 │       └── main.py             # FastAPI 入口
 ├── frontend/
@@ -95,6 +101,10 @@ uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
 - `http://127.0.0.1:8000/docs`
 - `http://127.0.0.1:8000/health`
 
+数据库默认写入：
+
+- `data/app.db`
+
 再启动前端：
 
 另开一个终端运行：
@@ -111,10 +121,12 @@ streamlit run frontend/streamlit_app.py --server.port 8501
 
 1. 在 Streamlit 页面输入查询词
 2. 前端调用 `POST /api/tasks`
-3. 后端创建 mock 任务并异步处理
-4. 前端轮询任务状态
-5. 任务完成后获取结构化文档列表
-6. 前端展示摘要、标签、原文链接、PDF 下载入口
+3. 后端创建任务并异步处理
+4. 服务层从已启用 sources 中选择 crawler
+5. 后端把任务状态和文档结果写入 SQLite
+6. 前端轮询任务状态
+7. 任务完成后获取结构化文档列表
+8. 前端展示摘要、标签、原文链接、PDF 下载入口
 
 ## 核心接口
 
@@ -141,7 +153,7 @@ streamlit run frontend/streamlit_app.py --server.port 8501
 
 ## 后续演进建议
 
-- 用 PostgreSQL 替换内存仓库
+- 用 PostgreSQL 替换 SQLite
 - 用 Redis 或消息队列替换本地异步模拟
 - 接入真实爬虫和解析器
 - 将 Streamlit 替换为小程序或 Web 前端

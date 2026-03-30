@@ -1,19 +1,23 @@
 """Mock data builder for reports and article results."""
 
+from __future__ import annotations
+
 from datetime import UTC, datetime, timedelta
 
 from backend.app.models.schemas import Document, DocumentAttachment, DocumentSummary
 
 
-def build_mock_documents(query: str) -> list[Document]:
+def build_mock_documents(query: str, source_code: str | None = None) -> list[Document]:
     """Generate deterministic example documents for the submitted query."""
     query_upper = query.upper()
     company_name = query if len(query) > 3 else f"{query_upper} Holdings"
     now = datetime.now(UTC)
+    source_value = source_code or "mock"
 
     return [
         Document(
             id=f"{query_lower_safe(query)}-report-q4",
+            source_code=source_value,
             doc_type="report",
             title=f"{company_name} Q4 2025 Earnings Report",
             company_name=company_name,
@@ -40,6 +44,7 @@ def build_mock_documents(query: str) -> list[Document]:
         ),
         Document(
             id=f"{query_lower_safe(query)}-filing-10k",
+            source_code=source_value,
             doc_type="filing",
             title=f"{company_name} Annual Filing 2025",
             company_name=company_name,
@@ -66,6 +71,7 @@ def build_mock_documents(query: str) -> list[Document]:
         ),
         Document(
             id=f"{query_lower_safe(query)}-news-supply-chain",
+            source_code=source_value,
             doc_type="news",
             title=f"{company_name} Expands Supply Chain Capacity",
             company_name=company_name,
@@ -86,6 +92,7 @@ def build_mock_documents(query: str) -> list[Document]:
         ),
         Document(
             id=f"{query_lower_safe(query)}-article-deep-dive",
+            source_code=source_value,
             doc_type="article",
             title=f"{company_name} Valuation Deep Dive",
             company_name=company_name,

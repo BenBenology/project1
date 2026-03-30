@@ -1,13 +1,15 @@
 """Service layer for mock task creation and processing."""
 
+from collections import OrderedDict
 from datetime import UTC, datetime
 from time import sleep
 from uuid import uuid4
 
+from backend.app.crawlers.registry import crawler_registry
 from backend.app.core.config import get_settings
 from backend.app.models.schemas import Document, TaskCreateRequest, TaskRecord
+from backend.app.repositories.source_repository import source_repository
 from backend.app.repositories.task_repository import task_repository
-from backend.app.services.mock_data import build_mock_documents
 
 
 class TaskService:
@@ -32,7 +34,7 @@ class TaskService:
         return task_repository.save_task(task)
 
     def process_task(self, task_id: str) -> None:
-        """Simulate crawl execution and persist mock results."""
+        """Run a task through the configured crawler sources."""
         task = task_repository.get_task(task_id)
         if task is None:
             return
@@ -43,7 +45,7 @@ class TaskService:
         task_repository.save_task(task)
 
         sleep(self.settings.mock_task_delay_seconds)
-        documents = self._generate_documents(task.query)
+        documents = self._generate_documents(task)
 
         task.progress = 100
         task.status = "success"
@@ -60,9 +62,18 @@ class TaskService:
         """Fetch generated documents for a task."""
         return list(task_repository.get_documents(task_id))
 
-    def _generate_documents(self, query: str) -> list[Document]:
-        """Wrap mock document generation for future crawler replacement."""
-        return build_mock_documents(query)
+    def _generate_documents(self, task: TaskRecord) -> list[Document]:
+        """Collect documents from enabled sources through the crawler registry."""
+        source_repository.ensure_default_sources()
+        documents_by_id: OrderedDict[str, Document] = OrderedDict()
+
+        for source in source_repository.list_enabled_sources():
+            crawler = crawler_registry.get(source.crawler_key)
+            for document in crawler.collect(task, source):
+                dedupe_key = f"{document.source_code}:{document.title}:{document.url}"
+                documents_by_id.setdefault(dedupe_key, document)
+
+        return list(documents_by_id.values())
 
 
 task_service = TaskService()
