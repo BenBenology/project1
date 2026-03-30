@@ -677,46 +677,45 @@ def render_source_runs(source_runs: list[dict]) -> None:
         return
 
     status_map = {
-        "success": ("Ready", "source-badge-success"),
-        "partial_success": ("Partial", "source-badge-partial"),
-        "failed": ("Failed", "source-badge-failed"),
+        "success": ("Ready", "success"),
+        "partial_success": ("Partial", "partial"),
+        "failed": ("Failed", "failed"),
     }
-    rows: list[str] = []
-    for source_run in source_runs:
-        badge_label, badge_class = status_map.get(
-            source_run["status"], (source_run["status"].replace("_", " ").title(), "source-badge-partial")
-        )
-        detail = (
-            source_run.get("error_message")
-            or "Returned normalized documents for this query."
-        )
-        rows.append(
-            f"""
-            <div class="source-row">
-                <div>
-                    <div class="source-name">{source_run['source_name']}</div>
-                    <div class="source-error">{detail}</div>
-                </div>
-                <div class="source-count">{source_run['document_count']} docs</div>
-                <div class="source-badge {badge_class}">{badge_label}</div>
-            </div>
-            """
-        )
 
     st.markdown(
-        f"""
+        """
         <div class="source-shell">
             <div class="source-header">
                 <div class="source-title">Source Health</div>
                 <div class="source-caption">Per-source execution results for the latest task</div>
             </div>
-            <div class="source-list">
-                {''.join(rows)}
-            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
+
+    for source_run in source_runs:
+        badge_label, badge_key = status_map.get(
+            source_run["status"],
+            (source_run["status"].replace("_", " ").title(), "partial"),
+        )
+        detail = source_run.get("error_message") or "Returned normalized documents for this query."
+        if detail.startswith("HTTPSConnectionPool("):
+            detail = "Connection to the upstream source failed before a usable response was returned."
+
+        row_columns = st.columns([3.2, 1, 0.9])
+        with row_columns[0]:
+            st.markdown(f"**{source_run['source_name']}**")
+            st.caption(detail)
+        with row_columns[1]:
+            st.caption(f"{source_run['document_count']} docs")
+        with row_columns[2]:
+            if badge_key == "success":
+                st.success(badge_label)
+            elif badge_key == "failed":
+                st.error(badge_label)
+            else:
+                st.info(badge_label)
 
 
 def render_starter_content() -> None:

@@ -33,8 +33,10 @@ class SecSubmissionsCrawler(BaseCrawler):
         settings = get_settings()
         self._headers = {
             "User-Agent": settings.sec_user_agent,
+            "Accept": "application/json,text/plain,*/*",
             "Accept-Encoding": "gzip, deflate",
-            "Host": "www.sec.gov",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Connection": "keep-alive",
         }
 
     def collect(self, task: TaskRecord, source: SourceRecord) -> list[Document]:

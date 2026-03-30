@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from datetime import datetime
+from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
 
 from backend.app.crawlers.base import BaseCrawler
+from backend.app.core.config import get_settings
 from backend.app.models.schemas import (
     Document,
     DocumentAttachment,
@@ -16,13 +18,28 @@ from backend.app.models.schemas import (
     TaskRecord,
 )
 
-TESLA_IR_URL = "https://ir.tesla.com/"
+TESLA_IR_URLS = [
+    "https://ir.tesla.com/",
+    "https://www.tesla.com/investor-relations",
+    "https://www.tesla.com/en_us/investor-relations",
+]
 
 
 class CompanyIRCrawler(BaseCrawler):
     """Fetch earnings-release style materials from known IR pages."""
 
     key = "company_ir"
+
+    def __init__(self) -> None:
+        settings = get_settings()
+        self._headers = {
+            "User-Agent": settings.browser_user_agent,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Referer": "https://www.google.com/",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+        }
 
     def collect(self, task: TaskRecord, source: SourceRecord) -> list[Document]:
         """Dispatch to a supported company IR implementation."""
@@ -33,9 +50,7 @@ class CompanyIRCrawler(BaseCrawler):
 
     def _collect_tesla_ir(self, task: TaskRecord, source: SourceRecord) -> list[Document]:
         """Collect Tesla quarterly disclosure links from its IR page."""
-        response = requests.get(TESLA_IR_URL, timeout=15)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, "html.parser")
+        soup, base_url = self._fetch_tesla_ir_page()
         filings: list[Document] = []
         seen_urls: set[str] = set()
         current_period = "Latest quarter"
@@ -43,7 +58,7 @@ class CompanyIRCrawler(BaseCrawler):
         for link in soup.find_all("a", href=True):
             label = link.get_text(" ", strip=True)
             href = link["href"]
-            url = self._absolute_url(href)
+            url = self._absolute_url(base_url, href)
 
             # Track the most recent quarter label when present in surrounding text.
             parent_text = link.parent.get_text(" ", strip=True)
@@ -67,6 +82,20 @@ class CompanyIRCrawler(BaseCrawler):
             )
 
         return filings[:18]
+
+    def _fetch_tesla_ir_page(self) -> tuple[BeautifulSoup, str]:
+        """Fetch Tesla IR HTML with browser-like headers and URL fallbacks."""
+        last_error: Exception | None = None
+        for url in TESLA_IR_URLS:
+            try:
+                response = requests.get(url, headers=self._headers, timeout=20)
+                response.raise_for_status()
+                return BeautifulSoup(response.text, "html.parser"), url
+            except requests.RequestException as exc:
+                last_error = exc
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError("Tesla IR page could not be fetched.")
 
     def _build_document(
         self,
@@ -127,8 +156,6 @@ class CompanyIRCrawler(BaseCrawler):
             return None
         return match.group(1)
 
-    def _absolute_url(self, value: str) -> str:
+    def _absolute_url(self, base_url: str, value: str) -> str:
         """Normalize relative IR links into absolute URLs."""
-        if value.startswith("http://") or value.startswith("https://"):
-            return value
-        return f"https://ir.tesla.com{value if value.startswith('/') else '/' + value}"
+        return urljoin(base_url, value)
