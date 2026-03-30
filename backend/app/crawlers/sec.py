@@ -10,6 +10,7 @@ import requests
 from backend.app.crawlers.base import BaseCrawler
 from backend.app.core.config import get_settings
 from backend.app.models.schemas import Document, DocumentSummary, SourceRecord, TaskRecord
+from backend.app.crawlers.sec_seed import FALLBACK_COMPANIES
 
 SEC_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 SEC_SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik}.json"
@@ -53,10 +54,14 @@ class SecSubmissionsCrawler(BaseCrawler):
     @lru_cache(maxsize=1)
     def _ticker_map(self) -> list[dict]:
         """Load and cache SEC's public ticker mapping."""
-        response = requests.get(SEC_TICKERS_URL, headers=self._headers, timeout=15)
-        response.raise_for_status()
-        payload = response.json()
-        return list(payload.values()) if isinstance(payload, dict) else payload
+        try:
+            response = requests.get(SEC_TICKERS_URL, headers=self._headers, timeout=15)
+            response.raise_for_status()
+            payload = response.json()
+            return list(payload.values()) if isinstance(payload, dict) else payload
+        except requests.RequestException:
+            # Keep common large-cap tickers usable when the SEC ticker file is flaky.
+            return FALLBACK_COMPANIES
 
     def _resolve_company(self, query: str) -> dict | None:
         """Resolve a ticker or company name against SEC's official list."""

@@ -60,7 +60,21 @@ def is_private_or_local_url(url: str) -> bool:
     return ip.is_private or ip.is_loopback or ip.is_link_local
 
 
-USE_EMBEDDED_MOCK = not FORCE_BACKEND_API and is_private_or_local_url(API_BASE_URL)
+@st.cache_data(ttl=30, show_spinner=False)
+def backend_is_reachable(api_base_url: str) -> bool:
+    """Check whether the configured backend is reachable from the current app."""
+    try:
+        response = requests.get(f"{api_base_url}/health", timeout=1.5)
+        return response.ok
+    except requests.RequestException:
+        return False
+
+
+USE_EMBEDDED_MOCK = (
+    not FORCE_BACKEND_API
+    and is_private_or_local_url(API_BASE_URL)
+    and not backend_is_reachable(API_BASE_URL)
+)
 
 
 def inject_styles() -> None:
@@ -112,7 +126,7 @@ def inject_styles() -> None:
                 overflow: hidden;
                 text-overflow: ellipsis;
             }
-            .search-shell, .summary-shell, .empty-shell, .starter-shell {
+            .search-shell, .summary-shell, .empty-shell, .starter-shell, .status-shell {
                 background: rgba(255, 255, 255, 0.78);
                 border: 1px solid rgba(17, 18, 20, 0.07);
                 border-radius: 18px;
@@ -208,6 +222,16 @@ def inject_styles() -> None:
             .empty-copy {
                 color: #5f6670;
                 font-size: 0.96rem;
+            }
+            .status-title {
+                font-size: 1rem;
+                font-weight: 700;
+                margin-bottom: 0.25rem;
+            }
+            .status-copy {
+                color: #5f6670;
+                font-size: 0.94rem;
+                line-height: 1.45;
             }
             .doc-accent {
                 width: 36px;
@@ -510,6 +534,36 @@ def render_documents(items: list[dict]) -> None:
             render_document_card(doc)
 
 
+def render_task_feedback(task: dict, items: list[dict]) -> None:
+    """Render a clear message when the task failed or returned no results."""
+    if task["status"] == "failed":
+        message = task.get("error_message") or "The backend did not return any usable result."
+        st.markdown(
+            f"""
+            <div class="status-shell">
+                <div class="status-title">No research results yet</div>
+                <div class="status-copy">{message}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        return
+
+    if not items:
+        st.markdown(
+            """
+            <div class="status-shell">
+                <div class="status-title">No research results yet</div>
+                <div class="status-copy">
+                    The task finished, but no normalized documents were returned for this query.
+                    Try a U.S. listed ticker like NVDA, AAPL, or TSLA first.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
 def render_starter_content() -> None:
     """Fill the first-screen empty state with useful starter content."""
     st.markdown(
@@ -631,6 +685,9 @@ if latest_task:
     task = latest_task["task"]
     items = latest_task["documents"]["items"]
     render_summary(task, items)
-    render_documents(items)
+    if task["status"] == "success" and items:
+        render_documents(items)
+    else:
+        render_task_feedback(task, items)
 else:
     render_starter_content()
