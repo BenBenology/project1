@@ -2,19 +2,25 @@
 
 from __future__ import annotations
 
+import ipaddress
 import os
 import time
 from collections import defaultdict
 from datetime import datetime
+from urllib.parse import urlparse
+from uuid import uuid4
 
 import requests
 import streamlit as st
 from dotenv import load_dotenv
 
+from backend.app.services.mock_data import build_mock_documents
+
 # Load local environment variables for developer convenience.
 load_dotenv()
 
 API_BASE_URL = os.getenv("STREAMLIT_API_BASE_URL", "http://127.0.0.1:8000")
+FORCE_BACKEND_API = os.getenv("STREAMLIT_FORCE_BACKEND_API", "").lower() == "true"
 QUERY_TYPE_OPTIONS = ["company", "stock", "industry", "topic"]
 QUERY_TYPE_LABELS = {
     "company": "Company",
@@ -30,6 +36,24 @@ DOC_TYPE_CONFIG = {
 }
 
 st.set_page_config(page_title="Signal Desk", page_icon="SD", layout="wide")
+
+
+def is_private_or_local_url(url: str) -> bool:
+    """Return whether the configured API base URL points to localhost/private IP."""
+    parsed = urlparse(url)
+    hostname = parsed.hostname
+    if hostname is None:
+        return True
+    if hostname in {"localhost", "127.0.0.1", "0.0.0.0"}:
+        return True
+    try:
+        ip = ipaddress.ip_address(hostname)
+    except ValueError:
+        return False
+    return ip.is_private or ip.is_loopback or ip.is_link_local
+
+
+USE_EMBEDDED_MOCK = not FORCE_BACKEND_API and is_private_or_local_url(API_BASE_URL)
 
 
 def inject_styles() -> None:
@@ -251,6 +275,12 @@ def inject_styles() -> None:
 
 def create_task(query: str, query_type: str) -> dict:
     """Call the backend to create a new mock crawl task."""
+    if USE_EMBEDDED_MOCK:
+        return {
+            "task_id": str(uuid4()),
+            "status": "success",
+            "message": "Embedded mock task created.",
+        }
     response = requests.post(
         f"{API_BASE_URL}/api/tasks",
         json={"query": query, "query_type": query_type},
@@ -262,6 +292,8 @@ def create_task(query: str, query_type: str) -> dict:
 
 def get_task(task_id: str) -> dict:
     """Retrieve task status from the backend."""
+    if USE_EMBEDDED_MOCK:
+        return st.session_state.embedded_task_map.get(task_id, {})
     response = requests.get(f"{API_BASE_URL}/api/tasks/{task_id}", timeout=10)
     response.raise_for_status()
     return response.json()
@@ -269,6 +301,10 @@ def get_task(task_id: str) -> dict:
 
 def get_documents(task_id: str) -> dict:
     """Retrieve normalized documents for a finished task."""
+    if USE_EMBEDDED_MOCK:
+        return st.session_state.embedded_document_map.get(
+            task_id, {"task_id": task_id, "count": 0, "items": []}
+        )
     response = requests.get(f"{API_BASE_URL}/api/tasks/{task_id}/documents", timeout=10)
     response.raise_for_status()
     return response.json()
@@ -276,6 +312,9 @@ def get_documents(task_id: str) -> dict:
 
 def poll_until_complete(task_id: str, timeout_seconds: int = 10) -> dict:
     """Poll the backend until the task reaches a terminal status."""
+    if USE_EMBEDDED_MOCK:
+        time.sleep(0.5)
+        return get_task(task_id)
     deadline = time.time() + timeout_seconds
     latest = {}
     while time.time() < deadline:
@@ -302,6 +341,31 @@ def summarize_counts(items: list[dict]) -> dict[str, int]:
     for item in items:
         counts[item["doc_type"]] = counts.get(item["doc_type"], 0) + 1
     return counts
+
+
+def run_embedded_research(query: str, query_type: str) -> tuple[dict, dict]:
+    """Generate a complete mock result package without an external backend."""
+    task_id = str(uuid4())
+    documents = [doc.model_dump(mode="json") for doc in build_mock_documents(query)]
+    task = {
+        "id": task_id,
+        "query": query,
+        "query_type": query_type,
+        "status": "success",
+        "progress": 100,
+        "result_count": len(documents),
+        "error_message": None,
+        "created_at": datetime.utcnow().isoformat(),
+        "started_at": datetime.utcnow().isoformat(),
+        "finished_at": datetime.utcnow().isoformat(),
+    }
+    document_payload = {"task_id": task_id, "count": len(documents), "items": documents}
+    st.session_state.embedded_task_map[task_id] = task
+    st.session_state.embedded_document_map[task_id] = document_payload
+    return (
+        {"task_id": task_id, "status": "success", "message": "Embedded mock task created."},
+        document_payload,
+    )
 
 
 def render_header() -> None:
@@ -474,6 +538,10 @@ if "query_value" not in st.session_state:
     st.session_state.query_value = ""
 if "query_type_value" not in st.session_state:
     st.session_state.query_type_value = "company"
+if "embedded_task_map" not in st.session_state:
+    st.session_state.embedded_task_map = {}
+if "embedded_document_map" not in st.session_state:
+    st.session_state.embedded_document_map = {}
 
 render_header()
 
@@ -517,9 +585,13 @@ if run_clicked:
         st.session_state.query_type_value = query_type
         with st.spinner("Preparing results..."):
             try:
-                created = create_task(query.strip(), query_type)
-                task = poll_until_complete(created["task_id"])
-                documents = get_documents(created["task_id"])
+                if USE_EMBEDDED_MOCK:
+                    created, documents = run_embedded_research(query.strip(), query_type)
+                    task = get_task(created["task_id"])
+                else:
+                    created = create_task(query.strip(), query_type)
+                    task = poll_until_complete(created["task_id"])
+                    documents = get_documents(created["task_id"])
                 st.session_state.latest_task = {
                     "created": created,
                     "task": task,
