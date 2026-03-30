@@ -126,7 +126,7 @@ def inject_styles() -> None:
                 overflow: hidden;
                 text-overflow: ellipsis;
             }
-            .search-shell, .summary-shell, .empty-shell, .starter-shell, .status-shell {
+            .search-shell, .summary-shell, .empty-shell, .starter-shell, .status-shell, .source-shell {
                 background: rgba(255, 255, 255, 0.78);
                 border: 1px solid rgba(17, 18, 20, 0.07);
                 border-radius: 18px;
@@ -232,6 +232,80 @@ def inject_styles() -> None:
                 color: #5f6670;
                 font-size: 0.94rem;
                 line-height: 1.45;
+            }
+            .source-shell {
+                margin-bottom: 0.85rem;
+            }
+            .source-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 1rem;
+                margin-bottom: 0.65rem;
+            }
+            .source-title {
+                font-size: 0.98rem;
+                font-weight: 700;
+            }
+            .source-caption {
+                color: #6b7280;
+                font-size: 0.84rem;
+            }
+            .source-list {
+                display: grid;
+                gap: 0.55rem;
+            }
+            .source-row {
+                display: grid;
+                grid-template-columns: minmax(0, 1.6fr) auto auto;
+                gap: 0.75rem;
+                align-items: start;
+                padding: 0.8rem 0.85rem;
+                background: rgba(247, 248, 250, 0.95);
+                border: 1px solid rgba(17, 18, 20, 0.05);
+                border-radius: 14px;
+            }
+            .source-name {
+                font-size: 0.94rem;
+                font-weight: 700;
+                color: #121417;
+                margin-bottom: 0.18rem;
+            }
+            .source-error {
+                color: #66707c;
+                font-size: 0.83rem;
+                line-height: 1.42;
+            }
+            .source-count {
+                color: #2d3641;
+                font-size: 0.82rem;
+                font-weight: 700;
+                white-space: nowrap;
+                align-self: center;
+            }
+            .source-badge {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-width: 92px;
+                padding: 0.24rem 0.58rem;
+                border-radius: 999px;
+                font-size: 0.76rem;
+                font-weight: 700;
+                white-space: nowrap;
+                align-self: center;
+            }
+            .source-badge-success {
+                background: #eaf7f2;
+                color: #1c6b54;
+            }
+            .source-badge-partial {
+                background: #edf4ff;
+                color: #355c94;
+            }
+            .source-badge-failed {
+                background: #fff1f1;
+                color: #a34848;
             }
             .doc-accent {
                 width: 36px;
@@ -354,6 +428,15 @@ def get_documents(task_id: str) -> dict:
             task_id, {"task_id": task_id, "count": 0, "items": []}
         )
     response = requests.get(f"{API_BASE_URL}/api/tasks/{task_id}/documents", timeout=10)
+    response.raise_for_status()
+    return response.json()
+
+
+def get_source_runs(task_id: str) -> dict:
+    """Retrieve per-source execution details for a finished task."""
+    if USE_EMBEDDED_MOCK:
+        return {"task_id": task_id, "count": 0, "items": []}
+    response = requests.get(f"{API_BASE_URL}/api/tasks/{task_id}/sources", timeout=10)
     response.raise_for_status()
     return response.json()
 
@@ -588,6 +671,54 @@ def render_partial_success_notice(task: dict) -> None:
     )
 
 
+def render_source_runs(source_runs: list[dict]) -> None:
+    """Render source-level execution details for easier debugging."""
+    if not source_runs:
+        return
+
+    status_map = {
+        "success": ("Ready", "source-badge-success"),
+        "partial_success": ("Partial", "source-badge-partial"),
+        "failed": ("Failed", "source-badge-failed"),
+    }
+    rows: list[str] = []
+    for source_run in source_runs:
+        badge_label, badge_class = status_map.get(
+            source_run["status"], (source_run["status"].replace("_", " ").title(), "source-badge-partial")
+        )
+        detail = (
+            source_run.get("error_message")
+            or "Returned normalized documents for this query."
+        )
+        rows.append(
+            f"""
+            <div class="source-row">
+                <div>
+                    <div class="source-name">{source_run['source_name']}</div>
+                    <div class="source-error">{detail}</div>
+                </div>
+                <div class="source-count">{source_run['document_count']} docs</div>
+                <div class="source-badge {badge_class}">{badge_label}</div>
+            </div>
+            """
+        )
+
+    st.markdown(
+        f"""
+        <div class="source-shell">
+            <div class="source-header">
+                <div class="source-title">Source Health</div>
+                <div class="source-caption">Per-source execution results for the latest task</div>
+            </div>
+            <div class="source-list">
+                {''.join(rows)}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_starter_content() -> None:
     """Fill the first-screen empty state with useful starter content."""
     st.markdown(
@@ -644,6 +775,8 @@ if "embedded_task_map" not in st.session_state:
     st.session_state.embedded_task_map = {}
 if "embedded_document_map" not in st.session_state:
     st.session_state.embedded_document_map = {}
+if "latest_source_runs" not in st.session_state:
+    st.session_state.latest_source_runs = {"task_id": "", "count": 0, "items": []}
 
 render_header()
 
@@ -690,15 +823,18 @@ if run_clicked:
                 if USE_EMBEDDED_MOCK:
                     created, documents = run_embedded_research(query.strip(), query_type)
                     task = get_task(created["task_id"])
+                    source_runs = {"task_id": created["task_id"], "count": 0, "items": []}
                 else:
                     created = create_task(query.strip(), query_type)
                     task = poll_until_complete(created["task_id"])
                     documents = get_documents(created["task_id"])
+                    source_runs = get_source_runs(created["task_id"])
                 st.session_state.latest_task = {
                     "created": created,
                     "task": task,
                     "documents": documents,
                 }
+                st.session_state.latest_source_runs = source_runs
                 st.rerun()
             except requests.RequestException as exc:
                 st.error(f"Backend request failed: {exc}")
@@ -709,6 +845,7 @@ if latest_task:
     task = latest_task["task"]
     items = latest_task["documents"]["items"]
     render_summary(task, items)
+    render_source_runs(st.session_state.latest_source_runs["items"])
     if task["status"] in {"success", "partial_success"} and items:
         if task["status"] == "partial_success":
             render_partial_success_notice(task)
