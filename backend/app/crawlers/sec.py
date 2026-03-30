@@ -8,9 +8,15 @@ from functools import lru_cache
 import requests
 
 from backend.app.crawlers.base import BaseCrawler
-from backend.app.core.config import get_settings
-from backend.app.models.schemas import Document, DocumentSummary, SourceRecord, TaskRecord
 from backend.app.crawlers.sec_seed import FALLBACK_COMPANIES
+from backend.app.core.config import get_settings
+from backend.app.models.schemas import (
+    Document,
+    DocumentAttachment,
+    DocumentSummary,
+    SourceRecord,
+    TaskRecord,
+)
 
 SEC_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 SEC_SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik}.json"
@@ -105,10 +111,27 @@ class SecSubmissionsCrawler(BaseCrawler):
 
             accession_no_dashes = accession.replace("-", "")
             cik_without_leading_zeros = str(int(submissions["cik"]))
-            filing_url = (
+            filing_document_url = (
                 f"{SEC_ARCHIVES_BASE}/{cik_without_leading_zeros}/"
                 f"{accession_no_dashes}/{primary_document}"
             )
+            filing_index_url = (
+                f"{SEC_ARCHIVES_BASE}/{cik_without_leading_zeros}/"
+                f"{accession_no_dashes}/{accession}-index.htm"
+            )
+            attachments: list[DocumentAttachment] = []
+            if primary_document.lower().endswith((".htm", ".html")):
+                probable_pdf_name = primary_document.rsplit(".", 1)[0] + ".pdf"
+                attachments.append(
+                    DocumentAttachment(
+                        file_type="pdf",
+                        file_name=probable_pdf_name,
+                        file_url=(
+                            f"{SEC_ARCHIVES_BASE}/{cik_without_leading_zeros}/"
+                            f"{accession_no_dashes}/{probable_pdf_name}"
+                        ),
+                    )
+                )
             documents.append(
                 Document(
                     id=f"{source.code}:{accession}",
@@ -119,17 +142,17 @@ class SecSubmissionsCrawler(BaseCrawler):
                     stock_code=stock_code,
                     publish_time=datetime.fromisoformat(f"{filing_date}T00:00:00+00:00"),
                     source_name=source.name,
-                    url=filing_url,
+                    url=filing_index_url,
                     summary=DocumentSummary(
                         summary_text=self._summary_text(form, filing_date),
                         key_points=[
                             f"Official SEC filing type: {form}.",
                             f"Filed on {filing_date}.",
-                            "Open the filing to inspect full disclosure details.",
+                            "Open the filing index or primary document for full disclosure details.",
                         ],
                         tags=["sec", "official", form.lower()],
                     ),
-                    attachments=[],
+                    attachments=attachments
                 )
             )
         return documents

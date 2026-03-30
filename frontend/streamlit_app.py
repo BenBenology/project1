@@ -478,7 +478,7 @@ def render_document_card(doc: dict) -> None:
         unsafe_allow_html=True,
     )
 
-    action_columns = st.columns([1, 1, 5])
+    action_columns = st.columns([1, 1, 1, 4])
     with action_columns[0]:
         st.link_button("Source", doc["url"], use_container_width=True)
 
@@ -490,12 +490,20 @@ def render_document_card(doc: dict) -> None:
     with action_columns[1]:
         if pdf_attachments:
             st.link_button("PDF", pdf_attachments[0]["file_url"], use_container_width=True)
+    with action_columns[2]:
+        if doc["doc_type"] in {"report", "filing"}:
+            st.link_button("Filing", doc["url"], use_container_width=True)
 
 
 def render_documents(items: list[dict]) -> None:
     """Render grouped documents with a simple type filter."""
     counts = summarize_counts(items)
     filter_options = ["all"] + [doc_type for doc_type, count in counts.items() if count > 0]
+    default_filter = "all"
+    for candidate in ["report", "filing", "article", "news"]:
+        if candidate in filter_options:
+            default_filter = candidate
+            break
     st.markdown(
         f"""
         <div class="results-toolbar">
@@ -507,7 +515,7 @@ def render_documents(items: list[dict]) -> None:
     selected_filter = st.segmented_control(
         "Content type",
         options=filter_options,
-        default="all",
+        default=default_filter,
         format_func=lambda value: "All" if value == "all" else DOC_TYPE_CONFIG[value]["label"],
     )
 
@@ -541,7 +549,7 @@ def render_task_feedback(task: dict, items: list[dict]) -> None:
         st.markdown(
             f"""
             <div class="status-shell">
-                <div class="status-title">No research results yet</div>
+                <div class="status-title">No results yet</div>
                 <div class="status-copy">{message}</div>
             </div>
             """,
@@ -553,7 +561,7 @@ def render_task_feedback(task: dict, items: list[dict]) -> None:
         st.markdown(
             """
             <div class="status-shell">
-                <div class="status-title">No research results yet</div>
+                <div class="status-title">No results yet</div>
                 <div class="status-copy">
                     The task finished, but no normalized documents were returned for this query.
                     Try a U.S. listed ticker like NVDA, AAPL, or TSLA first.
@@ -562,6 +570,22 @@ def render_task_feedback(task: dict, items: list[dict]) -> None:
             """,
             unsafe_allow_html=True,
         )
+
+
+def render_partial_success_notice(task: dict) -> None:
+    """Show source-level warnings while still rendering available results."""
+    message = task.get("error_message") or "Some sources failed, but partial results are available."
+    if "SEC EDGAR:" in message:
+        message = message.replace("SEC EDGAR:", "SEC filings are temporarily unavailable:")
+    st.markdown(
+        f"""
+        <div class="status-shell">
+            <div class="status-title">Partial results available</div>
+            <div class="status-copy">{message}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_starter_content() -> None:
@@ -685,7 +709,9 @@ if latest_task:
     task = latest_task["task"]
     items = latest_task["documents"]["items"]
     render_summary(task, items)
-    if task["status"] == "success" and items:
+    if task["status"] in {"success", "partial_success"} and items:
+        if task["status"] == "partial_success":
+            render_partial_success_notice(task)
         render_documents(items)
     else:
         render_task_feedback(task, items)
