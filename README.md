@@ -8,7 +8,7 @@
 - `source repository + crawler registry` 作为抓取扩展点
 - `SEC EDGAR submissions API` 作为正式披露来源
 - `Google News RSS` 作为真实文章来源
-- `Tesla Investor Relations` 作为首个公司 IR 正式材料来源
+- `Curated Materials` 为高频公司提供官方 IR / results / SEC browser 入口，Tesla 额外带季度 deck/PDF fallback
 
 项目目标不是直接给出买卖指令，而是帮助用户更快完成公开信息收集、归类和初步阅读。
 
