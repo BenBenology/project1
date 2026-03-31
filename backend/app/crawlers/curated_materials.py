@@ -162,16 +162,25 @@ class CuratedMaterialsCrawler(BaseCrawler):
             self._build_document(
                 source=source,
                 profile=profile,
-                title=f"{profile.company_name} SEC Company Filings",
-                doc_type="filing",
-                url=(
-                    "https://www.sec.gov/cgi-bin/browse-edgar"
-                    f"?action=getcompany&CIK={profile.ticker}&owner=exclude&count=40"
-                ),
+                title=f"{profile.company_name} Filings and Disclosures",
+                doc_type="report",
+                url=profile.results_url or profile.ir_url,
                 publish_time=datetime.now().astimezone(),
-                summary_text="Browser-accessible SEC company filings page used as a fallback when API access is unstable.",
-                tags=["official", "sec-browser", "filings", profile.ticker.lower()],
-                attachments=[],
+                summary_text=(
+                    "Official company results or disclosure page used as a more stable fallback "
+                    "when direct SEC access is blocked in the current network."
+                ),
+                tags=["official", "disclosures", "results-page", profile.ticker.lower()],
+                attachments=[
+                    DocumentAttachment(
+                        file_type="link",
+                        file_name=f"{profile.ticker.lower()}-sec-browser",
+                        file_url=(
+                            "https://www.sec.gov/cgi-bin/browse-edgar"
+                            f"?action=getcompany&CIK={profile.ticker}&owner=exclude&count=40"
+                        ),
+                    )
+                ],
             ),
         ]
         return documents
