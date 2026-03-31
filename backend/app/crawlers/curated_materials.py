@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from urllib.parse import quote_plus
 
 from backend.app.crawlers.base import BaseCrawler
 from backend.app.data.company_profiles import CompanyProfile, resolve_company_profile
@@ -125,12 +126,53 @@ class CuratedMaterialsCrawler(BaseCrawler):
         """Return company profile pages plus curated quarter-specific materials."""
         profile = resolve_company_profile(task.query)
         if profile is None:
-            return []
+            if task.query_type not in {"company", "stock"}:
+                return []
+            return self._build_generic_pack(task.query.strip(), source)
 
         documents = self._build_company_pack(profile, source)
         for item in CURATED_QUARTERLY_ITEMS.get(profile.ticker, []):
             documents.append(self._build_quarterly_document(profile, source, item))
         return documents
+
+    def _build_generic_pack(self, query: str, source: SourceRecord) -> list[Document]:
+        """Build a generic fallback pack for companies not yet in the curated directory."""
+        encoded_query = quote_plus(query)
+        return [
+            self._build_generic_document(
+                source=source,
+                query=query,
+                title=f"{query} Investor Relations Search",
+                doc_type="article",
+                url=f"https://www.google.com/search?q=%22{encoded_query}%22+investor+relations",
+                summary_text="Generic investor-relations search fallback for a company that is not yet in the curated directory.",
+                tags=["generic-fallback", "investor-relations-search"],
+                attachments=[],
+            ),
+            self._build_generic_document(
+                source=source,
+                query=query,
+                title=f"{query} Earnings Results Search",
+                doc_type="report",
+                url=f"https://www.google.com/search?q=%22{encoded_query}%22+earnings+results+pdf",
+                summary_text="Generic earnings-results search fallback to help locate quarterly materials and PDF decks.",
+                tags=["generic-fallback", "earnings-search"],
+                attachments=[],
+            ),
+            self._build_generic_document(
+                source=source,
+                query=query,
+                title=f"{query} SEC Company Search",
+                doc_type="filing",
+                url=(
+                    "https://www.sec.gov/cgi-bin/browse-edgar"
+                    f"?action=getcompany&company={encoded_query}&owner=exclude&count=40"
+                ),
+                summary_text="Generic SEC company search fallback for a company not yet mapped to a curated profile.",
+                tags=["generic-fallback", "sec-search"],
+                attachments=[],
+            ),
+        ]
 
     def _build_company_pack(
         self, profile: CompanyProfile, source: SourceRecord
@@ -234,6 +276,41 @@ class CuratedMaterialsCrawler(BaseCrawler):
                     "Fallback material used when direct official endpoints are blocked.",
                     "Prioritizes official investor-relations and browser-openable filing pages.",
                     "Use together with analyst coverage and market news for context.",
+                ],
+                tags=tags,
+            ),
+            attachments=attachments,
+        )
+
+    def _build_generic_document(
+        self,
+        source: SourceRecord,
+        query: str,
+        title: str,
+        doc_type: str,
+        url: str,
+        summary_text: str,
+        tags: list[str],
+        attachments: list[DocumentAttachment],
+    ) -> Document:
+        """Normalize a generic fallback material for unmapped companies."""
+        normalized_stock_code = query.upper().replace(" ", "") if len(query) <= 6 else None
+        return Document(
+            id=f"{source.code}:{abs(hash(title + url))}",
+            source_code=source.code,
+            doc_type=doc_type,
+            title=title,
+            company_name=query,
+            stock_code=normalized_stock_code,
+            publish_time=datetime.now().astimezone(),
+            source_name=source.name,
+            url=url,
+            summary=DocumentSummary(
+                summary_text=summary_text,
+                key_points=[
+                    "This company is not yet in the curated profile directory.",
+                    "A generic fallback search was returned instead of a company-specific official page.",
+                    "Use the linked search result together with news and analyst coverage.",
                 ],
                 tags=tags,
             ),
