@@ -19,13 +19,13 @@ Do not implement direct network access in the skill. External access belongs to 
 ## Preferred Workflow
 
 1. Resolve the company profile through MCP `resolve_company_profile`.
-2. Call MCP `collect_documents` for official sources first:
-   - `curated_materials`
-   - `company_ir`
-   - `sec_edgar`
+2. Call MCP source-specific tools for official sources first:
+   - `collect_curated_materials`
+   - `collect_company_ir`
+   - `collect_sec_edgar`
 3. Call article-style sources next:
-   - `google_news_analyst`
-   - `google_news`
+   - `collect_google_news_analyst`
+   - `collect_google_news`
 4. Deduplicate by `source_code + title + url`.
 5. Preserve partial results even when one or more official sources fail.
 

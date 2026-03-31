@@ -8,6 +8,14 @@ from backend.app.models.schemas import Document, SourceRecord, TaskRecord
 
 from .mcp_client import MCPClient, MCPClientError
 
+SOURCE_TOOL_MAP = {
+    "company_ir": "collect_company_ir",
+    "sec_edgar": "collect_sec_edgar",
+    "curated_materials": "collect_curated_materials",
+    "google_news": "collect_google_news",
+    "google_news_analyst": "collect_google_news_analyst",
+}
+
 
 class MarketDataGateway:
     """Bridge between task processing and the concrete data-collection runtime."""
@@ -25,9 +33,10 @@ class MarketDataGateway:
             port=self._settings.market_data_mcp_port,
             timeout_seconds=self._settings.market_data_mcp_timeout_seconds,
         )
+        tool_name = SOURCE_TOOL_MAP.get(source.code, "collect_documents")
         try:
             payload = client.call_tool(
-                "collect_documents",
+                tool_name,
                 {
                     "query": task.query,
                     "query_type": task.query_type,

@@ -171,8 +171,13 @@ python3 -m mcp.market_data_server.server
   - 负责 source 级排障方法
 - `mcp/market_data_server`
   - 负责真正的数据获取能力，目前暴露：
-  - `collect_documents`
   - `resolve_company_profile`
+  - `collect_company_ir`
+  - `collect_sec_edgar`
+  - `collect_curated_materials`
+  - `collect_google_news`
+  - `collect_google_news_analyst`
+  - `collect_documents` 作为通用兜底
 - `backend/app/adapters/market_data_gateway.py`
   - 负责在 FastAPI 内决定走 MCP 还是走本地 crawler
 
