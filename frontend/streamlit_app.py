@@ -21,6 +21,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from backend.app.data.company_profiles import COMPANY_PROFILES
 from backend.app.services.mock_data import build_mock_documents
 
 # Load local environment variables for developer convenience.
@@ -474,6 +475,21 @@ def summarize_counts(items: list[dict]) -> dict[str, int]:
     return counts
 
 
+def get_company_profile_rows() -> list[dict]:
+    """Return lightweight rows for the curated company directory."""
+    rows = []
+    for profile in COMPANY_PROFILES:
+        rows.append(
+            {
+                "Ticker": profile.ticker,
+                "Company": profile.company_name,
+                "IR": profile.ir_url,
+                "Results": profile.results_url or profile.ir_url,
+            }
+        )
+    return rows
+
+
 def run_embedded_research(query: str, query_type: str) -> tuple[dict, dict]:
     """Generate a complete mock result package without an external backend."""
     task_id = str(uuid4())
@@ -720,6 +736,7 @@ def render_source_runs(source_runs: list[dict]) -> None:
 
 def render_starter_content() -> None:
     """Fill the first-screen empty state with useful starter content."""
+    company_rows = get_company_profile_rows()
     st.markdown(
         """
         <div class="starter-shell">
@@ -760,6 +777,12 @@ def render_starter_content() -> None:
         """,
         unsafe_allow_html=True,
     )
+    with st.expander(f"Covered Companies ({len(company_rows)})", expanded=False):
+        st.caption(
+            "These companies have curated official-material coverage. "
+            "Queries outside this directory still get a generic fallback for company or stock searches."
+        )
+        st.dataframe(company_rows, use_container_width=True, hide_index=True)
 
 
 inject_styles()
