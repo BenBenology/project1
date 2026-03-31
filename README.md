@@ -149,6 +149,41 @@ python3 -m mcp.market_data_server.server
 
 然后再启动 FastAPI。此时后端会优先通过 MCP 获取 source 数据；如果 MCP 不可达，会自动回落到进程内 crawler。
 
+### 7. 如何直接使用 MCP
+
+先启动 MCP server：
+
+```bash
+python3 -m mcp.market_data_server.server
+```
+
+再开一个终端，用项目自带调试脚本验证：
+
+```bash
+python3 scripts/mcp_debug_client.py ping
+python3 scripts/mcp_debug_client.py list_tools
+python3 scripts/mcp_debug_client.py call_tool --tool list_sources
+python3 scripts/mcp_debug_client.py call_tool --tool resolve_company_profile --args '{"query":"Tesla"}'
+python3 scripts/mcp_debug_client.py call_tool --tool resolve_source_tool --args '{"source_code":"sec_edgar"}'
+```
+
+调用某个 source-specific tool 的例子：
+
+```bash
+python3 scripts/mcp_debug_client.py call_tool \
+  --tool collect_curated_materials \
+  --args '{"query":"Tesla","query_type":"company","task_id":"debug-task","source":{"code":"curated_materials","name":"Curated Materials","source_type":"official","base_url":"https://ir.tesla.com/","crawler_key":"curated_materials","enabled":1,"priority":15}}'
+```
+
+推荐的调试顺序：
+
+1. `ping`
+2. `list_tools`
+3. `list_sources`
+4. `resolve_company_profile`
+5. `resolve_source_tool`
+6. `collect_*`
+
 ## 主流程
 
 1. 在 Streamlit 页面输入查询词
@@ -172,6 +207,8 @@ python3 -m mcp.market_data_server.server
 - `mcp/market_data_server`
   - 负责真正的数据获取能力，目前暴露：
   - `resolve_company_profile`
+  - `list_sources`
+  - `resolve_source_tool`
   - `collect_company_ir`
   - `collect_sec_edgar`
   - `collect_curated_materials`

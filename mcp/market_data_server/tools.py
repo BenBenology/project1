@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from backend.app.crawlers.registry import crawler_registry
 from backend.app.data.company_profiles import resolve_company_profile
 from backend.app.models.schemas import SourceRecord, TaskRecord
+from backend.app.repositories.source_repository import source_repository
 
 SOURCE_TOOL_MAP = {
     "company_ir": "collect_company_ir",
@@ -30,6 +31,14 @@ def list_tools() -> list[dict]:
             "name": "resolve_company_profile",
             "description": "Resolve a free-form company or ticker query to a known company profile.",
         },
+        {
+            "name": "list_sources",
+            "description": "List enabled source definitions and their mapped MCP tools.",
+        },
+        {
+            "name": "resolve_source_tool",
+            "description": "Resolve one source code to the MCP tool that should handle it.",
+        },
     ]
     for source_code, tool_name in SOURCE_TOOL_MAP.items():
         tools.append(
@@ -47,6 +56,10 @@ def call_tool(tool_name: str, arguments: dict) -> dict:
         return _collect_documents(arguments)
     if tool_name == "resolve_company_profile":
         return _resolve_company_profile(arguments)
+    if tool_name == "list_sources":
+        return _list_sources()
+    if tool_name == "resolve_source_tool":
+        return _resolve_source_tool(arguments)
     if tool_name in TOOL_TO_SOURCE_CODE:
         return _collect_documents(arguments, expected_source_code=TOOL_TO_SOURCE_CODE[tool_name])
     raise ValueError(f"Unknown tool: {tool_name}")
@@ -91,4 +104,35 @@ def _resolve_company_profile(arguments: dict) -> dict:
             "ir_url": profile.ir_url,
             "results_url": profile.results_url,
         },
+    }
+
+
+def _list_sources() -> dict:
+    """Return enabled source definitions and the MCP tool mapped to each source."""
+    source_repository.ensure_default_sources()
+    items = []
+    for source in source_repository.list_enabled_sources():
+        items.append(
+            {
+                "code": source.code,
+                "name": source.name,
+                "source_type": source.source_type,
+                "base_url": source.base_url,
+                "crawler_key": source.crawler_key,
+                "priority": source.priority,
+                "mcp_tool": SOURCE_TOOL_MAP.get(source.code, "collect_documents"),
+            }
+        )
+    return {"count": len(items), "items": items}
+
+
+def _resolve_source_tool(arguments: dict) -> dict:
+    """Resolve the MCP tool name for a given source code."""
+    source_code = arguments.get("source_code", "").strip()
+    if not source_code:
+        raise ValueError("source_code is required.")
+    return {
+        "source_code": source_code,
+        "tool_name": SOURCE_TOOL_MAP.get(source_code, "collect_documents"),
+        "is_specific_tool": source_code in SOURCE_TOOL_MAP,
     }

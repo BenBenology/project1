@@ -23,12 +23,19 @@ class MCPClient:
 
     def call_tool(self, tool_name: str, arguments: dict) -> dict:
         """Call one MCP tool and return the decoded JSON result."""
+        return self.request(
+            "call_tool",
+            {"tool_name": tool_name, "arguments": arguments},
+        )
+
+    def request(self, method: str, params: dict | None = None) -> dict:
+        """Send one JSON-RPC request and return the decoded result object."""
         request_id = next(self._request_ids)
         request_body = {
             "jsonrpc": "2.0",
             "id": request_id,
-            "method": "call_tool",
-            "params": {"tool_name": tool_name, "arguments": arguments},
+            "method": method,
+            "params": params or {},
         }
 
         try:
