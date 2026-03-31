@@ -17,14 +17,20 @@
 - 能输出统一结构的标题、来源、摘要、标签和附件
 - 能根据查询词生成稳定的 mock 结果
 
-### 2. 真实 source 接入
+### 3. 真实 source 接入
 
 - 能接入 `SEC EDGAR` 作为正式披露来源
 - 能接入 `Google News RSS` 作为真实新闻来源
-- 能接入 `Tesla Investor Relations` 作为首个公司 IR 来源
+- 能接入 `Curated Materials` 作为官方材料 fallback
 - 能按 source 粒度记录成功/失败和文档数量
 
-### 3. 前端快速验证
+### 4. MCP 与 Skill 分层
+
+- 已具备 `market_data_gateway`，能在业务层切换本地 crawler 与 MCP
+- 已具备自定义 `market_data_server` skeleton
+- 已具备 `company_research` 和 `source_debug` 两个项目内 skill
+
+### 5. 前端快速验证
 
 - 能用 Streamlit 快速搭建交互页面
 - 能发起任务、轮询状态、展示结果
@@ -38,6 +44,12 @@
 - 接入公告站点
 - 接入新闻或 RSS 来源
 - 做限频、重试和失败隔离
+
+### 2. MCP 能力扩展
+
+- 将更多现有 source 逐步收敛为 MCP tool
+- 增加缓存、重试、超时和限流
+- 对接远程 MCP runtime
 
 ### 3. 数据解析与清洗
 

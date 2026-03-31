@@ -19,6 +19,10 @@ class Settings(BaseSettings):
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/123.0.0.0 Safari/537.36"
     )
+    enable_mcp_market_data: bool = False
+    market_data_mcp_host: str = "127.0.0.1"
+    market_data_mcp_port: int = 8765
+    market_data_mcp_timeout_seconds: float = 12.0
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

@@ -6,6 +6,7 @@
 - `Streamlit` 作为快速验证前端
 - `SQLite + SQLAlchemy` 作为默认持久化层
 - `source repository + crawler registry` 作为抓取扩展点
+- `MCP market-data server + skills` 作为外部交互与研究流程的下一层抽象
 - `SEC EDGAR submissions API` 作为正式披露来源
 - `Google News RSS` 作为真实文章来源
 - `Curated Materials` 为高频公司提供官方 IR / results / SEC browser 入口，Tesla 额外带季度 deck/PDF fallback
@@ -29,6 +30,7 @@ project1/
 │   ├── __init__.py
 │   └── app/
 │       ├── api/                # 路由层
+│       ├── adapters/           # MCP / 外部服务适配层
 │       ├── core/               # 配置层
 │       ├── crawlers/           # crawler 抽象与注册中心
 │       ├── db/                 # SQLAlchemy 和 ORM 模型
@@ -38,6 +40,11 @@ project1/
 │       └── main.py             # FastAPI 入口
 ├── frontend/
 │   └── streamlit_app.py        # Streamlit 入口
+├── mcp/
+│   └── market_data_server/     # 自定义 MCP server，负责统一外部数据获取
+├── skills/
+│   ├── company_research/       # 研究流程 skill
+│   └── source_debug/           # source 排障 skill
 ├── architecture.md             # 架构说明
 ├── agent.md                    # 协作约定
 ├── skills.md                   # 项目能力说明
@@ -124,6 +131,24 @@ streamlit run frontend/streamlit_app.py --server.port 8501
 
 - `http://127.0.0.1:8501`
 
+### 6. 如果你想启用 MCP market-data runtime
+
+先在 `.env` 中打开：
+
+```bash
+ENABLE_MCP_MARKET_DATA=true
+MARKET_DATA_MCP_HOST=127.0.0.1
+MARKET_DATA_MCP_PORT=8765
+```
+
+另开一个终端启动 MCP server：
+
+```bash
+python3 -m mcp.market_data_server.server
+```
+
+然后再启动 FastAPI。此时后端会优先通过 MCP 获取 source 数据；如果 MCP 不可达，会自动回落到进程内 crawler。
+
 ## 主流程
 
 1. 在 Streamlit 页面输入查询词
@@ -137,6 +162,19 @@ streamlit run frontend/streamlit_app.py --server.port 8501
 9. 前端轮询任务状态
 10. 任务完成后获取结构化文档列表
 11. 前端展示摘要、标签、原文链接、PDF / Filing 入口
+
+## MCP 与 Skills 分层
+
+- `skills/company_research/SKILL.md`
+  - 负责研究流程、source 优先级、fallback 规则
+- `skills/source_debug/SKILL.md`
+  - 负责 source 级排障方法
+- `mcp/market_data_server`
+  - 负责真正的数据获取能力，目前暴露：
+  - `collect_documents`
+  - `resolve_company_profile`
+- `backend/app/adapters/market_data_gateway.py`
+  - 负责在 FastAPI 内决定走 MCP 还是走本地 crawler
 
 ## 核心接口
 

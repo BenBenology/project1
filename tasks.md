@@ -13,6 +13,7 @@
 - [ ] 增加任务状态枚举说明
 - [x] 增加 API 返回示例
 - [ ] 为 Streamlit 页面补充更清晰的结果筛选与分组显示
+- [x] 搭建 `MCP + skills` 初始骨架
 
 ## P1：下一阶段建议完成
 
@@ -25,6 +26,8 @@
 - [ ] 增加 PDF 附件下载缓存
 - [x] 增加 source 级调试接口
 - [ ] 扩展更多公司 Investor Relations 来源
+- [ ] 将现有 source 分批迁移为 MCP tool
+- [ ] 将项目内自定义 MCP skeleton 接到远程 MCP 基础设施
 
 ## P2：验证后再做
 
@@ -36,9 +39,9 @@
 
 ## 当前最值得先做的 3 件事
 
-1. 扩展更多高质量官方 IR 来源
-2. 增加 source 管理与调试视图
-3. 最后把 SQLite 替换成 PostgreSQL
+1. 将 `SEC / IR / News / Curated Materials` 逐步标准化为 MCP tool
+2. 扩展更多高质量官方 IR 来源
+3. 增加 source 管理与调试视图
 
 ## 备注
 

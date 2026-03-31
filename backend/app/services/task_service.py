@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from time import sleep
 from uuid import uuid4
 
-from backend.app.crawlers.registry import crawler_registry
+from backend.app.adapters.market_data_gateway import market_data_gateway
 from backend.app.core.config import get_settings
 from backend.app.models.schemas import Document, SourceRunRecord, TaskCreateRequest, TaskRecord
 from backend.app.repositories.source_repository import source_repository
@@ -88,8 +88,7 @@ class TaskService:
 
         for source in source_repository.list_enabled_sources():
             try:
-                crawler = crawler_registry.get(source.crawler_key)
-                source_documents = crawler.collect(task, source)
+                source_documents = market_data_gateway.collect_documents(task, source)
                 added_count = 0
                 for document in source_documents:
                     dedupe_key = f"{document.source_code}:{document.title}:{document.url}"

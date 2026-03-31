@@ -25,12 +25,13 @@
         |
         +--> [Source Repository]
         |
-        +--> [Crawler Registry]
+        +--> [Market Data Gateway]
                  |
-                 +--> [Company IR Crawler]
-                 +--> [SEC EDGAR Crawler]
-                 +--> [Google News RSS Crawler]
-                 +--> [Mock Crawlers]
+                 +--> [MCP Client] ----> [Market Data MCP Server]
+                 |                           |
+                 |                           +--> [Crawler Registry]
+                 |
+                 +--> [Local Crawler Fallback]
 ```
 
 ## 3. 分层说明
@@ -83,6 +84,7 @@
 - 组织真实 source 与 crawler 的调度流程
 - 控制任务状态变化
 - 汇总 source 级成功/失败信息
+- 通过 gateway 选择本地 crawler 或 MCP 运行时
 
 设计原则：
 
@@ -110,6 +112,30 @@
 - 替换为 PostgreSQL
 - 如果要支持异步任务和缓存，可接 Redis
 
+### 3.5 适配层
+
+文件位置：
+
+- `backend/app/adapters/`
+
+职责：
+
+- 统一 FastAPI 到 MCP 的调用方式
+- 在 MCP 不可用时自动回落到本地 crawler
+- 隔离 JSON-RPC/TCP 细节，避免污染业务层
+
+### 3.6 MCP 层
+
+文件位置：
+
+- `mcp/market_data_server/`
+
+职责：
+
+- 统一外部数据获取能力
+- 提供工具化接口，供后端或其他 agent 复用
+- 承担未来的并发控制、缓存、重试、限流职责
+
 ### 3.5 数据模型层
 
 文件位置：
@@ -129,12 +155,13 @@
 2. 前端调用 `POST /api/tasks`
 3. FastAPI 创建任务并返回 `task_id`
 4. 后端后台任务模拟处理
-5. 服务层根据启用的 sources 调用 crawler registry
-6. 后端记录每个 source 的执行结果
-7. 前端轮询 `GET /api/tasks/{task_id}`
-8. 任务完成后调用 `GET /api/tasks/{task_id}/documents`
-9. 如需排障，可调用 `GET /api/tasks/{task_id}/sources`
-10. 前端展示结果
+5. 服务层根据启用的 sources 调用 market data gateway
+6. gateway 优先尝试 MCP，失败时回落到本地 crawler
+7. 后端记录每个 source 的执行结果
+8. 前端轮询 `GET /api/tasks/{task_id}`
+9. 任务完成后调用 `GET /api/tasks/{task_id}/documents`
+10. 如需排障，可调用 `GET /api/tasks/{task_id}/sources`
+11. 前端展示结果
 
 ## 6. 后续演进架构
 
@@ -148,18 +175,18 @@
             |
             v
       [Task Orchestrator]
-       /       |       \
-      v        v        v
-[Crawler]  [Parser]  [AI Summary]
-      \        |        /
-            v
-      [PostgreSQL]
-            |
-            v
-          [Redis]
-            |
-            v
-     [Object Storage / PDF]
+             |
+             v
+     [Market Data Gateway]
+        /             \
+       v               v
+[Local Fallback]   [MCP Server]
+                        |
+                        v
+               [Crawler / Parser / Cache]
+                        |
+                        v
+                   [PostgreSQL / Redis / PDF]
 ```
 
 ## 7. 关键替换点
@@ -183,6 +210,7 @@
 
 - SEC 在部分网络环境下可能出现 SSL 失败
 - 当前公司资料 fallback 已覆盖一批高频美股公司，并为 Tesla 提供额外季度材料与 PDF
+- MCP 目前还是项目内自定义 JSON-RPC/TCP skeleton，尚未接入你现有的外部 MCP 基础设施
 - 没有用户登录态
 - 没有权限控制
 - 没有生产环境部署能力
