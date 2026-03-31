@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from backend.app.crawlers.registry import crawler_registry
-from backend.app.data.company_profiles import resolve_company_profile
+from backend.app.data.company_profiles import COMPANY_PROFILES, resolve_company_profile
 from backend.app.models.schemas import SourceRecord, TaskRecord
 from backend.app.repositories.source_repository import source_repository
 
@@ -32,6 +32,10 @@ def list_tools() -> list[dict]:
             "description": "Resolve a free-form company or ticker query to a known company profile.",
         },
         {
+            "name": "list_company_profiles",
+            "description": "List currently curated company profiles covered by the fallback directory.",
+        },
+        {
             "name": "list_sources",
             "description": "List enabled source definitions and their mapped MCP tools.",
         },
@@ -56,6 +60,8 @@ def call_tool(tool_name: str, arguments: dict) -> dict:
         return _collect_documents(arguments)
     if tool_name == "resolve_company_profile":
         return _resolve_company_profile(arguments)
+    if tool_name == "list_company_profiles":
+        return _list_company_profiles(arguments)
     if tool_name == "list_sources":
         return _list_sources()
     if tool_name == "resolve_source_tool":
@@ -105,6 +111,33 @@ def _resolve_company_profile(arguments: dict) -> dict:
             "results_url": profile.results_url,
         },
     }
+
+
+def _list_company_profiles(arguments: dict) -> dict:
+    """Return the currently curated company profile directory."""
+    query = str(arguments.get("query", "")).strip().lower()
+    limit = int(arguments.get("limit", 0) or 0)
+
+    items = []
+    for profile in COMPANY_PROFILES:
+        payload = {
+            "ticker": profile.ticker,
+            "company_name": profile.company_name,
+            "aliases": list(profile.aliases),
+            "ir_url": profile.ir_url,
+            "results_url": profile.results_url,
+        }
+        searchable_text = " ".join(
+            [profile.ticker.lower(), profile.company_name.lower(), *[alias.lower() for alias in profile.aliases]]
+        )
+        if query and query not in searchable_text:
+            continue
+        items.append(payload)
+
+    if limit > 0:
+        items = items[:limit]
+
+    return {"count": len(items), "items": items}
 
 
 def _list_sources() -> dict:

@@ -162,6 +162,8 @@ python3 -m mcp.market_data_server.server
 ```bash
 python3 scripts/mcp_debug_client.py ping
 python3 scripts/mcp_debug_client.py list_tools
+python3 scripts/mcp_debug_client.py call_tool --tool list_company_profiles
+python3 scripts/mcp_debug_client.py call_tool --tool list_company_profiles --args '{"query":"tesla"}'
 python3 scripts/mcp_debug_client.py call_tool --tool list_sources
 python3 scripts/mcp_debug_client.py call_tool --tool resolve_company_profile --args '{"query":"Tesla"}'
 python3 scripts/mcp_debug_client.py call_tool --tool resolve_source_tool --args '{"source_code":"sec_edgar"}'
@@ -179,10 +181,11 @@ python3 scripts/mcp_debug_client.py call_tool \
 
 1. `ping`
 2. `list_tools`
-3. `list_sources`
-4. `resolve_company_profile`
-5. `resolve_source_tool`
-6. `collect_*`
+3. `list_company_profiles`
+4. `list_sources`
+5. `resolve_company_profile`
+6. `resolve_source_tool`
+7. `collect_*`
 
 ## 主流程
 
@@ -207,6 +210,7 @@ python3 scripts/mcp_debug_client.py call_tool \
 - `mcp/market_data_server`
   - 负责真正的数据获取能力，目前暴露：
   - `resolve_company_profile`
+  - `list_company_profiles`
   - `list_sources`
   - `resolve_source_tool`
   - `collect_company_ir`
