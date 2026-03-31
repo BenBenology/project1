@@ -387,9 +387,6 @@ def inject_styles() -> None:
                 border: 1px solid rgba(17, 18, 20, 0.08);
                 color: #1d2733;
             }
-            [data-testid="stSidebar"] {
-                display: none;
-            }
         </style>
         """,
         unsafe_allow_html=True,
@@ -488,6 +485,28 @@ def get_company_profile_rows() -> list[dict]:
             }
         )
     return rows
+
+
+def filter_company_profile_rows(query: str) -> list[dict]:
+    """Filter covered companies for sidebar browsing."""
+    rows = get_company_profile_rows()
+    normalized = query.strip().lower()
+    if not normalized:
+        return rows
+
+    filtered = []
+    for row in rows:
+        searchable = " ".join(
+            [
+                str(row["Ticker"]).lower(),
+                str(row["Company"]).lower(),
+                str(row["IR"]).lower(),
+                str(row["Results"]).lower(),
+            ]
+        )
+        if normalized in searchable:
+            filtered.append(row)
+    return filtered
 
 
 def run_embedded_research(query: str, query_type: str) -> tuple[dict, dict]:
@@ -734,9 +753,24 @@ def render_source_runs(source_runs: list[dict]) -> None:
                 st.info(badge_label)
 
 
+def render_company_directory_sidebar() -> None:
+    """Render the covered-company directory in the sidebar."""
+    st.sidebar.markdown("### Covered Companies")
+    directory_query = st.sidebar.text_input(
+        "Filter companies",
+        value=st.session_state.get("company_directory_query", ""),
+        placeholder="MS, Tesla, Pfizer...",
+        key="company_directory_query",
+    )
+    company_rows = filter_company_profile_rows(directory_query)
+    st.sidebar.caption(
+        f"{len(company_rows)} shown. Covered names use curated official-material fallback."
+    )
+    st.sidebar.dataframe(company_rows, use_container_width=True, hide_index=True, height=420)
+
+
 def render_starter_content() -> None:
     """Fill the first-screen empty state with useful starter content."""
-    company_rows = get_company_profile_rows()
     st.markdown(
         """
         <div class="starter-shell">
@@ -777,12 +811,6 @@ def render_starter_content() -> None:
         """,
         unsafe_allow_html=True,
     )
-    with st.expander(f"Covered Companies ({len(company_rows)})", expanded=False):
-        st.caption(
-            "These companies have curated official-material coverage. "
-            "Queries outside this directory still get a generic fallback for company or stock searches."
-        )
-        st.dataframe(company_rows, use_container_width=True, hide_index=True)
 
 
 inject_styles()
@@ -800,6 +828,7 @@ if "embedded_document_map" not in st.session_state:
 if "latest_source_runs" not in st.session_state:
     st.session_state.latest_source_runs = {"task_id": "", "count": 0, "items": []}
 
+render_company_directory_sidebar()
 render_header()
 
 st.markdown('<div class="search-shell">', unsafe_allow_html=True)

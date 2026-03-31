@@ -546,6 +546,13 @@ def normalize_company_query(value: str) -> str:
     return re.sub(r"\s+", " ", lowered).strip()
 
 
+def _profile_search_terms(profile: CompanyProfile) -> set[str]:
+    """Build the normalized exact-match term set for one company profile."""
+    terms = {normalize_company_query(profile.ticker), normalize_company_query(profile.company_name)}
+    terms.update(normalize_company_query(alias) for alias in profile.aliases)
+    return {term for term in terms if term}
+
+
 def resolve_company_profile(query: str) -> CompanyProfile | None:
     """Resolve a user query to a known company profile when possible."""
     normalized = normalize_company_query(query)
@@ -553,15 +560,16 @@ def resolve_company_profile(query: str) -> CompanyProfile | None:
         return None
 
     for profile in COMPANY_PROFILES:
-        aliases = {normalize_company_query(alias) for alias in profile.aliases}
-        aliases.add(normalize_company_query(profile.company_name))
-        aliases.add(normalize_company_query(profile.ticker))
-        if normalized in aliases:
+        if normalized in _profile_search_terms(profile):
             return profile
 
+    # Very short queries such as "MS" should never fall through to loose substring matching,
+    # otherwise symbols like MS get incorrectly resolved to Microsoft instead of Morgan Stanley.
+    if len(normalized) <= 2:
+        return None
+
     for profile in COMPANY_PROFILES:
-        aliases = {normalize_company_query(alias) for alias in profile.aliases}
-        aliases.add(normalize_company_query(profile.company_name))
-        if any(normalized in alias or alias in normalized for alias in aliases):
+        search_terms = _profile_search_terms(profile)
+        if any(len(term) >= 3 and (normalized in term or term in normalized) for term in search_terms):
             return profile
     return None
